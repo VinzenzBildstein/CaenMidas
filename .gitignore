@@ -1,0 +1,5 @@
+*.o
+*.dat
+*.root
+*Dictionary_rdict.pcm
+*Dictionary.cc
