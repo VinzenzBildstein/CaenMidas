@@ -3,3 +3,5 @@
 *.root
 *Dictionary_rdict.pcm
 *Dictionary.cc
+.*.SHM
+.*.TXT
