@@ -1,46 +1,79 @@
-# Makefile
-# $Id$
+.EXPORT_ALL_VARIABLES:
 
-LIBS = -lm -lz -lutil -lpthread -lCAENDigitizer -lrt
+.SUFFIXES:
 
-DRV_DIR         = $(MIDASSYS)/drivers
-INC_DIR         = $(MIDASSYS)/include
-LIB_DIR         = $(MIDASSYS)/lib
+.PHONY: clean all
 
-# MIDAS library
-MIDASLIBS = $(LIB_DIR)/libmidas.a
+# := is only evaluated once
 
-# fix these for MacOS
-UNAME=$(shell uname)
-ifeq ($(UNAME),Darwin)
-MIDASLIBS = $(MIDASSYS)/darwin/lib/libmidas.a
-LIB_DIR   = $(MIDASSYS)/darwin/lib
-endif
+SHELL 		= /bin/sh
 
-ROOTFLAGS=$(shell $(ROOTSYS)/bin/root-config --cflags)
+LIB_DIR 	= $(HOME)/lib
+BIN_DIR		= $(HOME)/bin
 
-OSFLAGS  = -DOS_LINUX -Dextname
-CFLAGS   = -std=c++11 -g -O2 -Wall -Wuninitialized -I$(INC_DIR) -I$(DRV_DIR) -I$(VMICHOME)/include
-CXXFLAGS = $(CFLAGS) -DHAVE_ROOT -DUSE_ROOT $(ROOTFLAGS)
+NAME		= MidasHist
 
-# ROOT library
-ROOTLIBS = $(shell $(ROOTSYS)/bin/root-config --libs) -lThread -Wl,-rpath,$(ROOTSYS)/lib
+ROOTLIBS     	:= $(shell root-config --glibs)
+ROOTINC      	:= -I$(shell root-config --incdir)
 
-all: fecaen WriteToOdb
+GRSILIBS   := $(shell grsi-config --all-libs)
+GRSICFLAGS := $(shell grsi-config --cflags)
 
-fecaen: $(MIDASLIBS) $(LIB_DIR)/mfe.o fecaen.o CaenSettings.o CaenDigitizer.o
-	$(CXX) -o $@ $(CXXFLAGS) $(OSFLAGS) $^ $(MIDASLIBS) $(ROOTLIBS) $(LIBS)
+INCLUDES        = -I.
 
-%: %.cc $(MIDASLIBS) CaenSettings.o
-	$(CXX) -o $@ $(CXXFLAGS) $(OSFLAGS) $^ $(MIDASLIBS) $(ROOTLIBS) $(LIBS)
+LIBRARIES	= CAENDigitizer
 
-%.o: %.c
-	$(CC) $(CFLAGS) $(OSFLAGS) -c $<
+CC		= gcc
+CXX   = g++
+CPPFLAGS	= $(ROOTINC) $(GRSICFLAGS) $(INCLUDES) -fPIC
+CXXFLAGS	= -pedantic -Wall -Wno-long-long -g -O3 -std=c++11 -DUSE_WAVEFORMS 
+#-DUSE_CURSES
 
-%.o: %.cxx
-	$(CXX) $(CXXFLAGS) $(OSFLAGS) -c $<
+LDFLAGS		= -g -fpic
 
-clean::
-	-rm -f *.o *.exe
+LDLIBS 		= -L$(LIB_DIR) $(ROOTLIBS) $(GRSILIBS) $(addprefix -l,$(LIBRARIES))
 
-# end
+LOADLIBES = \
+				CaenEvent.o \
+				$(NAME)Dictionary.o 
+
+# -------------------- implicit rules --------------------
+# n.o made from n.c by 		$(CC) -c $(CPPFLAGS) $(CFLAGS)
+# n.o made from n.cc by 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS)
+# n made from n.o by 		$(CC) $(LDFLAGS) n.o $(LOADLIBES) $(LDLIBS)
+
+# -------------------- rules --------------------
+
+all:  $(BIN_DIR)/$(NAME)
+	@echo Done
+
+$(LIB_DIR)/lib$(NAME).so: $(LOADLIBES)
+	$(CXX) $(LDFLAGS) -shared -Wl,-soname,lib$(NAME).so -o $(LIB_DIR)/lib$(NAME).so $(LOADLIBES) -lc
+
+# -------------------- pattern rules --------------------
+# this rule sets the name of the .cc file at the beginning of the line (easier to find)
+
+%.o: %.cc %.hh
+	$(CXX) $< -c $(CPPFLAGS) $(CXXFLAGS) -o $@
+
+# -------------------- default rule for executables --------------------
+
+$(BIN_DIR)/%: %.cc $(LOADLIBES)
+	$(CXX) $< $(CXXFLAGS) $(CPPFLAGS) $(LOADLIBES) $(LDLIBS) -DHAS_XML -o $@
+
+# -------------------- Root stuff --------------------
+
+DEPENDENCIES = \
+					CaenEvent.hh \
+					RootLinkDef.h
+
+$(NAME)Dictionary.o: $(NAME)Dictionary.cc
+	 $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $<
+
+$(NAME)Dictionary.cc: $(DEPENDENCIES)
+	 rm -f $(NAME)Dictionary.cc $(NAME)Dictionary.h; rootcint -f $@ -c $(CPPFLAGS) $(DEPENDENCIES)
+
+# -------------------- clean --------------------
+
+clean:
+	rm  -f $(BIN_DIR)/$(NAME) *.o

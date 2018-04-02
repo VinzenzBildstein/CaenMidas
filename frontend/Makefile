@@ -17,20 +17,22 @@ MIDASLIBS = $(MIDASSYS)/darwin/lib/libmidas.a
 LIB_DIR   = $(MIDASSYS)/darwin/lib
 endif
 
+ROOTFLAGS=$(shell $(ROOTSYS)/bin/root-config --cflags)
+
 OSFLAGS  = -DOS_LINUX -Dextname
 CFLAGS   = -std=c++11 -g -O2 -Wall -Wuninitialized -I$(INC_DIR) -I$(DRV_DIR) -I$(VMICHOME)/include
-CXXFLAGS = $(CFLAGS) -DHAVE_ROOT -DUSE_ROOT -I$(ROOTSYS)/include
+CXXFLAGS = $(CFLAGS) -DHAVE_ROOT -DUSE_ROOT $(ROOTFLAGS)
 
 # ROOT library
 ROOTLIBS = $(shell $(ROOTSYS)/bin/root-config --libs) -lThread -Wl,-rpath,$(ROOTSYS)/lib
 
-all: fecaen
+all: fecaen WriteToOdb
 
 fecaen: $(MIDASLIBS) $(LIB_DIR)/mfe.o fecaen.o CaenSettings.o CaenDigitizer.o
-	$(CXX) -o $@ $(CXXFLAGS) $(OSFLAGS) $^ $(MIDASLIBS) $(LIBS)
+	$(CXX) -o $@ $(CXXFLAGS) $(OSFLAGS) $^ $(MIDASLIBS) $(ROOTLIBS) $(LIBS)
 
-analyzer: $(LIB_DIR)/rmana.o analyzer.o modules.o $(MIDASLIBS)
-	g++ -o $@ -m32 -O2 -g $^ $(ROOTLIBS) $(LIBS)
+%: %.cc $(MIDASLIBS) CaenSettings.o
+	$(CXX) -o $@ $(CXXFLAGS) $(OSFLAGS) $^ $(MIDASLIBS) $(ROOTLIBS) $(LIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(OSFLAGS) -c $<
