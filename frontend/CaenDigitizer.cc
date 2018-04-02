@@ -26,7 +26,7 @@ std::string format(const std::string& format, ...)
 CaenDigitizer::CaenDigitizer(bool debug)
 	: fSettings(new CaenSettings), fDebug(debug)
 {
-	// fSettings(new CaenSettings) automatically loads settings from the odb
+	fSettings->ReadOdb();
 	Setup();
 }
 
@@ -43,8 +43,6 @@ void CaenDigitizer::Setup()
 			fHandle.resize(fSettings->NumberOfBoards(), -1);
 			fBuffer.resize(fSettings->NumberOfBoards(), nullptr);
 			fBufferSize.resize(fSettings->NumberOfBoards(), 0);
-			//fEvents.resize(fSettings->NumberOfBoards(), nullptr);
-			//fNofEvents.resize(fSettings->NumberOfBoards(), std::vector<uint32_t>(fSettings->NumberOfChannels(), 0));
 			fWaveforms.resize(fSettings->NumberOfBoards(), nullptr);
 		} catch(std::exception e) {
 			std::cerr<<"Failed to resize vectors for "<<fSettings->NumberOfBoards()<<" boards, and "<<fSettings->NumberOfChannels()<<" channels: "<<e.what()<<std::endl;
@@ -93,22 +91,6 @@ void CaenDigitizer::Setup()
 				throw std::runtime_error(format("Error %d when allocating readout buffer", errorCode));
 			}
 			if(fDebug) std::cout<<"allocated "<<fBufferSize[0]<<" bytes of buffer for board "<<b<<std::endl;
-			// again, we don't care how many bytes have been allocated, so we use fNofEvents here
-			//fEvents[b] = new CAEN_DGTZ_DPP_PSD_Event_t*[fSettings->NumberOfChannels()];
-			//for(int i = 0; i < fSettings->NumberOfChannels(); ++i) {
-			//	fEvents[b][i] == nullptr;
-			//}
-			//try{
-			// free(fEvents[b]);
-			//	errorCode = CAEN_DGTZ_MallocDPPEvents(fHandle[b], reinterpret_cast<void**>(fEvents[b]), fNofEvents[b].data());
-			//	if(errorCode != 0) {
-			//		throw std::runtime_error(format("Error %d when allocating DPP events", errorCode));
-			//	}
-			//} catch(std::exception& e) {
-			//	CAEN_DGTZ_CloseDigitizer(fHandle[b]);
-			//	std::cout<<"failed to allocate dpp events: "<<e.what()<<std::endl;
-			//	throw e;
-			//}
 #ifdef USE_WAVEFORMS
 			// allocate waveforms, again not caring how many bytes have been allocated
 			uint32_t size;
@@ -128,7 +110,6 @@ CaenDigitizer::~CaenDigitizer()
 {
 	for(int b = 0; b < fSettings->NumberOfBoards(); ++b) {
 		CAEN_DGTZ_FreeReadoutBuffer(&fBuffer[b]);
-		//CAEN_DGTZ_FreeDPPEvents(fHandle[b], reinterpret_cast<void**>(fEvents[b]));
 #ifdef USE_WAVEFORMS
 		CAEN_DGTZ_FreeDPPWaveforms(fHandle[b], reinterpret_cast<void*>(fWaveforms[b]));
 #endif
@@ -172,10 +153,6 @@ INT CaenDigitizer::DataReady()
 	}
 	bool gotData = false;
 	for(int b = 0; b < fSettings->NumberOfBoards(); ++b) {
-		// reset fNofEvents
-		for(int ch = 0; ch < fSettings->NumberOfChannels(); ++ch) {
-			//fNofEvents[b][ch] = 0;
-		}
 		errorCode = CAEN_DGTZ_ReadData(fHandle[b], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, fBuffer[b], &fBufferSize[b]);
 		if(errorCode != 0) {
 			std::cerr<<"Error "<<errorCode<<" when reading data"<<std::endl;
@@ -324,19 +301,5 @@ void CaenDigitizer::ProgramDigitizer(int b)
 
 	errorCode = CAEN_DGTZ_SetDPP_VirtualProbe(fHandle[b], DIGITAL_TRACE_2, CAEN_DGTZ_DPP_DIGITALPROBE_GateShort);
 	if(fDebug) std::cout<<"done with digitizer "<<b<<std::endl;
-}
-
-bool CaenDigitizer::CheckEvent(const CAEN_DGTZ_DPP_PSD_Event_t& event)
-{
-	if(event.TimeTag == 0 && (event.Extras>>16) == 0 && (event.Extras & 0x3ff) == 0) {
-		if(fDebug) {
-			std::cout<<"empty time"<<std::endl;
-		}
-		return false;
-	}
-	if(fDebug) { 
-		std::cout<<"times: "<<(event.Extras>>16)<<", "<<event.TimeTag<<", "<<(event.Extras & 0x3ff)<<std::endl;
-	}
-	return true;
 }
 

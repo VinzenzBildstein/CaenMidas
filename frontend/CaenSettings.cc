@@ -6,11 +6,12 @@
 
 #include "midas.h"
 
+#include "TEnv.h"
+
 #include "CaenOdb.h"
 
 CaenSettings::CaenSettings()
 {
-	ReadOdb();
 }
 
 void CaenSettings::ReadOdb()
@@ -19,10 +20,18 @@ void CaenSettings::ReadOdb()
 	HNDLE hDB;
 	HNDLE hSet;
 	DT5730_COMMON settings;
-	cm_get_experiment_database(&hDB, nullptr);
-	DT5730_COMMON_STR(dt5730_common_str);
+std::cout<<"connecting to database ..."<<std::endl;
+	if(cm_get_experiment_database(&hDB, nullptr) != CM_SUCCESS) {
+		std::cout<<"failed to get database handle "<<hDB<<std::endl;
+		throw;
+	}
 
-	db_create_record(hDB, 0, "/Equipment/DT5730/Common", strcomb(dt5730_common_str));
+	DT5730_COMMON_STR(dt5730_common_str);
+	if(db_create_record(hDB, 0, "/Equipment/DT5730/Common", strcomb(dt5730_common_str)) != DB_SUCCESS) {
+		std::cout<<"failed to create record"<<std::endl;
+		throw;
+	}
+
 	db_find_key(hDB, 0, "/Equipment/DT5730/Common", &hSet);
 	int size = sizeof(settings);
 	if(db_get_record(hDB, hSet, &settings, &size, 0) != DB_SUCCESS) {
@@ -103,6 +112,173 @@ void CaenSettings::ReadOdb()
 	}
 	fRawOutput = settings.raw_output;
 	Print();
+}
+
+bool CaenSettings::ReadSettingsFile(const std::string& filename)
+{
+	auto settings = new TEnv(filename.c_str());
+	if(settings == nullptr || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
+		return false;
+	}
+
+   fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
+   if(fNumberOfBoards < 1) {
+      std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
+      return false;
+   }
+   fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
+   if(fNumberOfChannels < 1) {
+      std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
+      return false;
+   }
+   fBufferSize = settings->GetValue("BufferSize", 100000);
+
+   fLinkType.resize(fNumberOfBoards);
+   fVmeBaseAddress.resize(fNumberOfBoards);
+   fAcquisitionMode.resize(fNumberOfBoards);
+   fIOLevel.resize(fNumberOfBoards);
+   fChannelMask.resize(fNumberOfBoards);
+   fRunSync.resize(fNumberOfBoards);
+   fEventAggregation.resize(fNumberOfBoards);
+   fTriggerMode.resize(fNumberOfBoards);
+   fRecordLength.resize(fNumberOfBoards);
+   fDCOffset.resize(fNumberOfBoards);
+   fPreTrigger.resize(fNumberOfBoards);
+   fPulsePolarity.resize(fNumberOfBoards);
+   fEnableCfd.resize(fNumberOfBoards);
+   fCfdParameters.resize(fNumberOfBoards);
+   fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
+   for(int i = 0; i < fNumberOfBoards; ++i) {
+      fLinkType[i]         = CAEN_DGTZ_USB;//0
+      fVmeBaseAddress[i]   = 0;
+      fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
+      fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
+      fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
+      fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
+      fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
+      fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
+
+      fRecordLength[i].resize(fNumberOfChannels);
+      fDCOffset[i].resize(fNumberOfChannels);
+      fPreTrigger[i].resize(fNumberOfChannels);
+      fPulsePolarity[i].resize(fNumberOfChannels);
+      fEnableCfd[i].resize(fNumberOfChannels);
+      fCfdParameters[i].resize(fNumberOfChannels);
+      for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+         fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
+         fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 0x8000);
+         fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 80);
+         fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
+         fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
+         fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
+         fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
+         fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
+      }
+
+      fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
+      fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
+      fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
+      fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
+      fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
+      for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+         fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
+         fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
+         fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
+         fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
+         fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
+         fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
+         fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
+         fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
+         fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
+      }
+   }
+
+	return true;
+}
+
+bool CaenSettings::WriteOdb()
+{
+	// write ODB settings
+	HNDLE hDB;
+	HNDLE hSet;
+	DT5730_COMMON settings;
+
+std::cout<<"here ..."<<std::endl;
+	// copy settings to DT5730_COMMON struct
+	if(fNumberOfBoards > MAX_BOARDS) {
+		std::cerr<<"Too many boards specified in settings: "<<fNumberOfBoards<<" > "<<MAX_BOARDS<<std::endl;
+		return false;
+	}
+	if(fNumberOfChannels*fNumberOfBoards > MAX_CHANNELS) {
+		std::cerr<<"Too many channels specified in settings: "<<fNumberOfChannels*fNumberOfBoards<<" > "<<MAX_CHANNELS<<std::endl;
+		return false;
+	}
+	settings.number_of_digitizers = fNumberOfBoards;
+	settings.channels_per_digitizer = fNumberOfChannels;
+	for(int i = 0; i < fNumberOfBoards; ++i) {
+		settings.link_type[i] = fLinkType[i];
+		settings.vme_base_address[i] = fVmeBaseAddress[i];
+		settings.acquisition_mode[i] = fAcquisitionMode[i];
+		settings.io_level[i] = fIOLevel[i];
+		settings.trigger_mode[i] = fTriggerMode[i];
+		settings.channel_mask[i] = fChannelMask[i];
+		settings.runsync_mode[i] = fRunSync[i];
+		settings.event_aggregation[i] = fEventAggregation[i];
+
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			settings.record_length[i*fNumberOfChannels + ch] = fRecordLength[i][ch];
+			settings.dc_offset[i*fNumberOfChannels + ch] = fDCOffset[i][ch];
+			settings.pre_trigger[i*fNumberOfChannels + ch] = fPreTrigger[i][ch];
+			settings.pulse_polarity[i*fNumberOfChannels + ch] = fPulsePolarity[i][ch];
+			settings.enable_cfd[i*fNumberOfChannels + ch] = fEnableCfd[i][ch];
+			settings.cfd_delay[i*fNumberOfChannels + ch] = fCfdParameters[i][ch] & 0xff;
+			settings.cfd_fraction[i*fNumberOfChannels + ch] = (fCfdParameters[i][ch]>>8) & 0x3;
+			settings.cfd_interpolation_points[i*fNumberOfChannels + ch] = (fCfdParameters[i][ch]>>10) & 0x3;
+		}
+
+		settings.pile_up_rejection_mode[i] = fChannelParameter[i]->purh;
+		settings.pile_up_gap[i] = fChannelParameter[i]->purgap;
+		settings.baseline_threshold[i] = fChannelParameter[i]->blthr;
+		settings.baseline_timeout[i] = fChannelParameter[i]->bltmo;
+		settings.trigger_holdoff[i] = fChannelParameter[i]->trgho;
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			settings.threshold[i*fNumberOfChannels + ch] = fChannelParameter[i]->thr[ch];
+			settings.baseline_samples[i*fNumberOfChannels + ch] = fChannelParameter[i]->nsbl[ch];
+			settings.long_gate[i*fNumberOfChannels + ch] = fChannelParameter[i]->lgate[ch];
+			settings.short_gate[i*fNumberOfChannels + ch] = fChannelParameter[i]->sgate[ch];
+			settings.pre_gate[i*fNumberOfChannels + ch] = fChannelParameter[i]->pgate[ch];
+			settings.self_trigger[i*fNumberOfChannels + ch] = fChannelParameter[i]->selft[ch];
+			settings.trigger_configuration[i*fNumberOfChannels + ch] = fChannelParameter[i]->trgc[ch];
+			settings.trigger_validation_window[i*fNumberOfChannels + ch] = fChannelParameter[i]->tvaw[ch];
+			settings.charge_sensitivity[i*fNumberOfChannels + ch] = fChannelParameter[i]->csens[ch];
+		}
+	}
+	settings.raw_output = fRawOutput;
+std::cout<<"connecting to database ..."<<std::endl;
+	// connect to ODB
+	if(cm_get_experiment_database(&hDB, nullptr) != CM_SUCCESS) {
+		std::cout<<"failed to get database handle "<<hDB<<std::endl;
+		return false;
+	}
+
+std::cout<<"creating record using handle "<<hDB<<" ..."<<std::endl;
+	// create record (just in case it didn't exist already)
+	DT5730_COMMON_STR(dt5730_common_str);
+	if(db_create_record(hDB, 0, "/Equipment/DT5730/Common", strcomb(dt5730_common_str)) != DB_SUCCESS) {
+		std::cout<<"failed to create record"<<std::endl;
+		return false;
+	}
+
+std::cout<<"writing ..."<<std::endl;
+	// write settings to ODB
+	db_find_key(hDB, 0, "/Equipment/DT5730/Common", &hSet);
+	int size = sizeof(settings);
+	if(db_set_record(hDB, hSet, &settings, size, 0) != DB_SUCCESS) {
+		std::cout<<"Error occured trying to write \"/Equipment/DT5730/Common\""<<std::endl;
+		return false;
+	}
+
+	return true;
 }
 
 CaenSettings::~CaenSettings()

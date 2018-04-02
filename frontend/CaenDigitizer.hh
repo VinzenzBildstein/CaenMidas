@@ -22,7 +22,6 @@ public:
 private:
 	void Setup();
 	void ProgramDigitizer(int board);
-	bool CheckEvent(const CAEN_DGTZ_DPP_PSD_Event_t& event);
 
 	CaenSettings* fSettings;
 

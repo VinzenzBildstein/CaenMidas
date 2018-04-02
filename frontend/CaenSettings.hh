@@ -12,6 +12,8 @@ public:
 	~CaenSettings();
 
 	void ReadOdb();
+	bool ReadSettingsFile(const std::string&);
+	bool WriteOdb();
 	void Print();
 
 	int NumberOfBoards() const { return fNumberOfBoards; }
