@@ -1,6 +1,7 @@
 #include "CaenSettings.hh"
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <curses.h>
 
@@ -198,6 +199,67 @@ bool CaenSettings::ReadSettingsFile(const std::string& filename)
 
 bool CaenSettings::WriteOdb()
 {
+	// for some reason using the handle doesn't work, cm_get_experiment_database(&hDB, nullptr) gives hDB = 0
+	// which then fails when used
+	// so instead we create a script which uses odbedit and run it
+	
+	// for some reason WriteOdb does not work, so we create a script 'writeSettings.sh' and run it
+   std::ofstream script("writeSettings.sh", std::ios::out);
+
+   script<<"#!/bin/bash"<<std::endl
+         <<"#"<<std::endl
+         <<"# script to update ODB settings, automatically created by WriteOdb"<<std::endl
+	      <<std::endl;
+
+	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Number of digitizers\\\" "<<fNumberOfBoards<<"\""<<std::endl;
+	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Channels per digitizer\\\" "<<fNumberOfChannels<<"\""<<std::endl;
+	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Raw output\\\" "<<fRawOutput<<"\""<<std::endl;
+	for(int i = 0; i < fNumberOfBoards; ++i) {
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Link Type["<<i<<"]\\\" "<<fLinkType[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/VME base address["<<i<<"]\\\" "<<fVmeBaseAddress[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Acquisition Mode["<<i<<"]\\\" "<<fAcquisitionMode[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/IO Level["<<i<<"]\\\" "<<fIOLevel[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger Mode["<<i<<"]\\\" "<<fTriggerMode[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Channel Mask["<<i<<"]\\\" "<<fChannelMask[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/RunSync Mode["<<i<<"]\\\" "<<fRunSync[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Event aggregation["<<i<<"]\\\" "<<fEventAggregation[i]<<"\""<<std::endl;
+
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Record length["<<i*fNumberOfChannels+ch<<"]\\\" "<<fRecordLength[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/DC offset["<<i*fNumberOfChannels+ch<<"]\\\" "<<fDCOffset[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pre trigger["<<i*fNumberOfChannels+ch<<"]\\\" "<<fPreTrigger[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pulse polarity["<<i*fNumberOfChannels+ch<<"]\\\" "<<fPulsePolarity[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Enable CFD["<<i*fNumberOfChannels+ch<<"]\\\" "<<fEnableCfd[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/CFD delay["<<i*fNumberOfChannels+ch<<"]\\\" "<<(fCfdParameters[i][ch] & 0xff)<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/CFD fraction["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>8) & 0x3)<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/CFD interpolation points["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>10) & 0x3)<<"\""<<std::endl;
+		}
+
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pile up rejection mode["<<i<<"]\\\" "<<fChannelParameter[i]->purh<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pile up gap["<<i<<"]\\\" "<<fChannelParameter[i]->purgap<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Baseline threshold["<<i<<"]\\\" "<<fChannelParameter[i]->blthr<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Baseline timeout["<<i<<"]\\\" "<<fChannelParameter[i]->bltmo<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger holdoff["<<i<<"]\\\" "<<fChannelParameter[i]->trgho<<"\""<<std::endl;
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Threshold["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->thr[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Baseline samples["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->nsbl[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Long gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->lgate[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Short gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->sgate[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pre gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->pgate[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Self trigger["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->selft[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger configuration["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->trgc[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger validation window["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->tvaw[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Charge sensitivity["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->csens[ch]<<"\""<<std::endl;
+		}
+	}
+	script<<std::endl;
+
+   script.close();
+
+	system("chmod +x writeSettings.sh; writeSettings.sh");
+
+	return true;
+
 	// write ODB settings
 	HNDLE hDB;
 	HNDLE hSet;
