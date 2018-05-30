@@ -176,6 +176,7 @@ INT CaenDigitizer::DataReady()
 		std::cout<<"----------------------------------------"<<std::endl;
 	}
 
+	// this is necessary because TRUE and FALSE are not booleans ...
 	if(gotData) return TRUE;
 	return FALSE;
 }
@@ -258,7 +259,7 @@ void CaenDigitizer::ProgramDigitizer(int b)
 	// disabled turns acquisition mode back to SW controlled
 	// both GpioGpioDaisyChain and SinFanout turn it to S_IN controlled
 	// according to rev18 manual GpioGpioDaisyChain is not used!
-	errorCode = CAEN_DGTZ_SetRunSynchronizationMode(fHandle[b], CAEN_DGTZ_RUN_SYNC_SinFanout); // change to settings
+	errorCode = CAEN_DGTZ_SetRunSynchronizationMode(fHandle[b], CAEN_DGTZ_RUN_SYNC_Disabled); // change to settings
 
 	if(errorCode != 0) {
 		throw std::runtime_error(format("Error %d when setting run sychronization", errorCode));
@@ -278,7 +279,6 @@ void CaenDigitizer::ProgramDigitizer(int b)
 	CAEN_DGTZ_WriteRegister(fHandle[b], address, data);
 
 	for(int ch = 0; ch < fSettings->NumberOfChannels(); ++ch) {
-		std::cout<<"programming channel "<<ch<<std::endl;
 		if((fSettings->ChannelMask(b) & (1<<ch)) != 0) {
 			if(fDebug) std::cout<<"programming channel "<<ch<<std::endl;
 			if(ch%2 == 0) {

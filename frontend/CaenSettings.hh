@@ -14,7 +14,7 @@ public:
 	~CaenSettings();
 
 	void ReadOdb(HNDLE hDB);
-	//bool ReadSettingsFile(const std::string&);
+	bool ReadSettingsFile(const std::string&);
 	bool WriteOdb();
 	void Print();
 

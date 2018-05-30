@@ -8,7 +8,7 @@
 
 #include "midas.h"
 
-//#include "TEnv.h"
+#include "TEnv.h"
 
 #include "CaenOdb.h"
 
@@ -120,87 +120,87 @@ void CaenSettings::ReadOdb(HNDLE hDB)
 	//Print();
 }
 
-//bool CaenSettings::ReadSettingsFile(const std::string& filename)
-//{
-//	auto settings = new TEnv(filename.c_str());
-//	if(settings == NULL || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
-//		return false;
-//	}
-//
-//	fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
-//	if(fNumberOfBoards < 1) {
-//		std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
-//		return false;
-//	}
-//	fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
-//	if(fNumberOfChannels < 1) {
-//		std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
-//		return false;
-//	}
-//	fBufferSize = settings->GetValue("BufferSize", 100000);
-//
-//	fLinkType.resize(fNumberOfBoards);
-//	fVmeBaseAddress.resize(fNumberOfBoards);
-//	fAcquisitionMode.resize(fNumberOfBoards);
-//	fIOLevel.resize(fNumberOfBoards);
-//	fChannelMask.resize(fNumberOfBoards);
-//	fRunSync.resize(fNumberOfBoards);
-//	fEventAggregation.resize(fNumberOfBoards);
-//	fTriggerMode.resize(fNumberOfBoards);
-//	fRecordLength.resize(fNumberOfBoards);
-//	fDCOffset.resize(fNumberOfBoards);
-//	fPreTrigger.resize(fNumberOfBoards);
-//	fPulsePolarity.resize(fNumberOfBoards);
-//	fEnableCfd.resize(fNumberOfBoards);
-//	fCfdParameters.resize(fNumberOfBoards);
-//	fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
-//	for(int i = 0; i < fNumberOfBoards; ++i) {
-//		fLinkType[i]         = CAEN_DGTZ_USB;//0
-//		fVmeBaseAddress[i]   = 0;
-//		fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
-//		fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
-//		fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
-//		fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
-//		fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
-//		fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
-//
-//		fRecordLength[i].resize(fNumberOfChannels);
-//		fDCOffset[i].resize(fNumberOfChannels);
-//		fPreTrigger[i].resize(fNumberOfChannels);
-//		fPulsePolarity[i].resize(fNumberOfChannels);
-//		fEnableCfd[i].resize(fNumberOfChannels);
-//		fCfdParameters[i].resize(fNumberOfChannels);
-//		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-//			fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
-//			fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 0x8000);
-//			fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 80);
-//			fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
-//			fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
-//			fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
-//			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
-//			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
-//		}
-//
-//		fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
-//		fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
-//		fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
-//		fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
-//		fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
-//		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-//			fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
-//			fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
-//			fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
-//			fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
-//			fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
-//			fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
-//			fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
-//			fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
-//			fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
-//		}
-//	}
-//
-//	return true;
-//}
+bool CaenSettings::ReadSettingsFile(const std::string& filename)
+{
+	auto settings = new TEnv(filename.c_str());
+	if(settings == NULL || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
+		return false;
+	}
+
+	fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
+	if(fNumberOfBoards < 1) {
+		std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
+		return false;
+	}
+	fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
+	if(fNumberOfChannels < 1) {
+		std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
+		return false;
+	}
+	fBufferSize = settings->GetValue("BufferSize", 100000);
+
+	fLinkType.resize(fNumberOfBoards);
+	fVmeBaseAddress.resize(fNumberOfBoards);
+	fAcquisitionMode.resize(fNumberOfBoards);
+	fIOLevel.resize(fNumberOfBoards);
+	fChannelMask.resize(fNumberOfBoards);
+	fRunSync.resize(fNumberOfBoards);
+	fEventAggregation.resize(fNumberOfBoards);
+	fTriggerMode.resize(fNumberOfBoards);
+	fRecordLength.resize(fNumberOfBoards);
+	fDCOffset.resize(fNumberOfBoards);
+	fPreTrigger.resize(fNumberOfBoards);
+	fPulsePolarity.resize(fNumberOfBoards);
+	fEnableCfd.resize(fNumberOfBoards);
+	fCfdParameters.resize(fNumberOfBoards);
+	fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
+	for(int i = 0; i < fNumberOfBoards; ++i) {
+		fLinkType[i]         = CAEN_DGTZ_USB;//0
+		fVmeBaseAddress[i]   = 0;
+		fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
+		fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
+		fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
+		fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
+		fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
+		fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
+
+		fRecordLength[i].resize(fNumberOfChannels);
+		fDCOffset[i].resize(fNumberOfChannels);
+		fPreTrigger[i].resize(fNumberOfChannels);
+		fPulsePolarity[i].resize(fNumberOfChannels);
+		fEnableCfd[i].resize(fNumberOfChannels);
+		fCfdParameters[i].resize(fNumberOfChannels);
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
+			fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 0x8000);
+			fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 80);
+			fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
+			fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
+			fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
+			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
+			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
+		}
+
+		fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
+		fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
+		fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
+		fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
+		fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
+			fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
+			fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
+			fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
+			fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
+			fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
+			fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
+			fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
+			fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
+		}
+	}
+
+	return true;
+}
 
 bool CaenSettings::WriteOdb()
 {
