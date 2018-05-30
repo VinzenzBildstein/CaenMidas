@@ -21,7 +21,7 @@
 
 #ifndef EXCL_DT5730
 
-#define DT5730_COMMON_DEFINED
+#define DT5730_SETTINGS_DEFINED
 
 #define MAX_BOARDS 2
 #define MAX_CHANNELS 8
@@ -63,9 +63,9 @@ typedef struct {
   WORD		trigger_configuration[MAX_CHANNELS];
   WORD		trigger_validation_window[MAX_CHANNELS];
   WORD		charge_sensitivity[MAX_CHANNELS];
-} DT5730_COMMON;
+} DT5730_SETTINGS;
 
-#define DT5730_COMMON_STR(_name) const char *_name[] = {\
+#define DT5730_SETTINGS_STR(_name) const char *_name[] = {\
 	"[.]",\
 	"Format = STRING : [80] ",\
 	"Number of digitizers = WORD : 1",\

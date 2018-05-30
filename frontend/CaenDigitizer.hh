@@ -11,10 +11,10 @@
 
 class CaenDigitizer {
 public:
-	CaenDigitizer(bool debugi = false);
+	CaenDigitizer(HNDLE hDB, bool debug = false);
 	~CaenDigitizer();
 
-	void StartAcquisition();
+	void StartAcquisition(HNDLE hDB);
 	void StopAcquisition();
 	INT  DataReady();
 	void ReadData(char* event, char* bankName);

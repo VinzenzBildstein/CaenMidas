@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 
+#include "midas.h"
+
 #include "CAENDigitizer.h"
 
 class CaenSettings {
@@ -11,8 +13,8 @@ public:
 	CaenSettings(const std::string& filename, bool debug);
 	~CaenSettings();
 
-	void ReadOdb();
-	bool ReadSettingsFile(const std::string&);
+	void ReadOdb(HNDLE hDB);
+	//bool ReadSettingsFile(const std::string&);
 	bool WriteOdb();
 	void Print();
 

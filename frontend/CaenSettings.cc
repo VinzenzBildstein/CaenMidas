@@ -4,10 +4,11 @@
 #include <fstream>
 #include <iomanip>
 #include <curses.h>
+#include <cstdlib>
 
 #include "midas.h"
 
-#include "TEnv.h"
+//#include "TEnv.h"
 
 #include "CaenOdb.h"
 
@@ -15,28 +16,32 @@ CaenSettings::CaenSettings()
 {
 }
 
-void CaenSettings::ReadOdb()
+void CaenSettings::ReadOdb(HNDLE hDB)
 {
-	// read ODB settings
-	HNDLE hDB;
-	HNDLE hSet;
-	DT5730_COMMON settings;
-std::cout<<"connecting to database ..."<<std::endl;
-	if(cm_get_experiment_database(&hDB, nullptr) != CM_SUCCESS) {
-		std::cout<<"failed to get database handle "<<hDB<<std::endl;
-		throw;
+	if(hDB == 0) {
+		std::cerr<<"Can't read settings from ODB, handle provided is "<<hDB<<std::endl;
+		return;
 	}
+	// read ODB settings
+	//HNDLE hDB;
+	HNDLE hSet;
+	DT5730_SETTINGS settings;
+	//std::cout<<"connecting to database ..."<<std::endl;
+	//if(cm_get_experiment_database(&hDB, NULL) != CM_SUCCESS) {
+	//	std::cout<<"failed to get database handle "<<hDB<<std::endl;
+	//	throw;
+	//}
 
-	DT5730_COMMON_STR(dt5730_common_str);
-	if(db_create_record(hDB, 0, "/Equipment/DT5730/Common", strcomb(dt5730_common_str)) != DB_SUCCESS) {
+	DT5730_SETTINGS_STR(dt5730_settings_str);
+	if(db_create_record(hDB, 0, "/Equipment/DT5730/Settings", strcomb(dt5730_settings_str)) != DB_SUCCESS) {
 		std::cout<<"failed to create record"<<std::endl;
 		throw;
 	}
 
-	db_find_key(hDB, 0, "/Equipment/DT5730/Common", &hSet);
+	db_find_key(hDB, 0, "/Equipment/DT5730/Settings", &hSet);
 	int size = sizeof(settings);
 	if(db_get_record(hDB, hSet, &settings, &size, 0) != DB_SUCCESS) {
-		std::cout<<"Error occured trying to read \"/Equipment/DT5730/Common\""<<std::endl;
+		std::cout<<"Error occured trying to read \"/Equipment/DT5730/Settings\""<<std::endl;
 		throw;
 	}
 
@@ -112,161 +117,161 @@ std::cout<<"connecting to database ..."<<std::endl;
 		}
 	}
 	fRawOutput = settings.raw_output;
-	Print();
+	//Print();
 }
 
-bool CaenSettings::ReadSettingsFile(const std::string& filename)
-{
-	auto settings = new TEnv(filename.c_str());
-	if(settings == nullptr || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
-		return false;
-	}
-
-   fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
-   if(fNumberOfBoards < 1) {
-      std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
-      return false;
-   }
-   fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
-   if(fNumberOfChannels < 1) {
-      std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
-      return false;
-   }
-   fBufferSize = settings->GetValue("BufferSize", 100000);
-
-   fLinkType.resize(fNumberOfBoards);
-   fVmeBaseAddress.resize(fNumberOfBoards);
-   fAcquisitionMode.resize(fNumberOfBoards);
-   fIOLevel.resize(fNumberOfBoards);
-   fChannelMask.resize(fNumberOfBoards);
-   fRunSync.resize(fNumberOfBoards);
-   fEventAggregation.resize(fNumberOfBoards);
-   fTriggerMode.resize(fNumberOfBoards);
-   fRecordLength.resize(fNumberOfBoards);
-   fDCOffset.resize(fNumberOfBoards);
-   fPreTrigger.resize(fNumberOfBoards);
-   fPulsePolarity.resize(fNumberOfBoards);
-   fEnableCfd.resize(fNumberOfBoards);
-   fCfdParameters.resize(fNumberOfBoards);
-   fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
-   for(int i = 0; i < fNumberOfBoards; ++i) {
-      fLinkType[i]         = CAEN_DGTZ_USB;//0
-      fVmeBaseAddress[i]   = 0;
-      fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
-      fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
-      fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
-      fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
-      fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
-      fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
-
-      fRecordLength[i].resize(fNumberOfChannels);
-      fDCOffset[i].resize(fNumberOfChannels);
-      fPreTrigger[i].resize(fNumberOfChannels);
-      fPulsePolarity[i].resize(fNumberOfChannels);
-      fEnableCfd[i].resize(fNumberOfChannels);
-      fCfdParameters[i].resize(fNumberOfChannels);
-      for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-         fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
-         fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 0x8000);
-         fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 80);
-         fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
-         fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
-         fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
-         fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
-         fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
-      }
-
-      fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
-      fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
-      fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
-      fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
-      fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
-      for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-         fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
-         fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
-         fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
-         fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
-         fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
-         fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
-         fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
-         fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
-         fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
-      }
-   }
-
-	return true;
-}
+//bool CaenSettings::ReadSettingsFile(const std::string& filename)
+//{
+//	auto settings = new TEnv(filename.c_str());
+//	if(settings == NULL || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
+//		return false;
+//	}
+//
+//	fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
+//	if(fNumberOfBoards < 1) {
+//		std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
+//		return false;
+//	}
+//	fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
+//	if(fNumberOfChannels < 1) {
+//		std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
+//		return false;
+//	}
+//	fBufferSize = settings->GetValue("BufferSize", 100000);
+//
+//	fLinkType.resize(fNumberOfBoards);
+//	fVmeBaseAddress.resize(fNumberOfBoards);
+//	fAcquisitionMode.resize(fNumberOfBoards);
+//	fIOLevel.resize(fNumberOfBoards);
+//	fChannelMask.resize(fNumberOfBoards);
+//	fRunSync.resize(fNumberOfBoards);
+//	fEventAggregation.resize(fNumberOfBoards);
+//	fTriggerMode.resize(fNumberOfBoards);
+//	fRecordLength.resize(fNumberOfBoards);
+//	fDCOffset.resize(fNumberOfBoards);
+//	fPreTrigger.resize(fNumberOfBoards);
+//	fPulsePolarity.resize(fNumberOfBoards);
+//	fEnableCfd.resize(fNumberOfBoards);
+//	fCfdParameters.resize(fNumberOfBoards);
+//	fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
+//	for(int i = 0; i < fNumberOfBoards; ++i) {
+//		fLinkType[i]         = CAEN_DGTZ_USB;//0
+//		fVmeBaseAddress[i]   = 0;
+//		fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
+//		fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
+//		fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
+//		fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
+//		fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
+//		fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
+//
+//		fRecordLength[i].resize(fNumberOfChannels);
+//		fDCOffset[i].resize(fNumberOfChannels);
+//		fPreTrigger[i].resize(fNumberOfChannels);
+//		fPulsePolarity[i].resize(fNumberOfChannels);
+//		fEnableCfd[i].resize(fNumberOfChannels);
+//		fCfdParameters[i].resize(fNumberOfChannels);
+//		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+//			fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
+//			fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 0x8000);
+//			fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 80);
+//			fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
+//			fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
+//			fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
+//			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
+//			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
+//		}
+//
+//		fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
+//		fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
+//		fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
+//		fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
+//		fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
+//		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+//			fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
+//			fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
+//			fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
+//			fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
+//			fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
+//			fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
+//			fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
+//			fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
+//			fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
+//		}
+//	}
+//
+//	return true;
+//}
 
 bool CaenSettings::WriteOdb()
 {
-	// for some reason using the handle doesn't work, cm_get_experiment_database(&hDB, nullptr) gives hDB = 0
+	// for some reason using the handle doesn't work, cm_get_experiment_database(&hDB, NULL) gives hDB = 0
 	// which then fails when used
 	// so instead we create a script which uses odbedit and run it
-	
+
 	// for some reason WriteOdb does not work, so we create a script 'writeSettings.sh' and run it
-   std::ofstream script("writeSettings.sh", std::ios::out);
+	std::ofstream script("writeSettings.sh", std::ios::out);
 
-   script<<"#!/bin/bash"<<std::endl
-         <<"#"<<std::endl
-         <<"# script to update ODB settings, automatically created by WriteOdb"<<std::endl
-	      <<std::endl;
+	script<<"#!/bin/bash"<<std::endl
+		<<"#"<<std::endl
+		<<"# script to update ODB settings, automatically created by WriteOdb"<<std::endl
+		<<std::endl;
 
-	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Number of digitizers\\\" "<<fNumberOfBoards<<"\""<<std::endl;
-	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Channels per digitizer\\\" "<<fNumberOfChannels<<"\""<<std::endl;
-	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Raw output\\\" "<<fRawOutput<<"\""<<std::endl;
+	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Number of digitizers\\\" "<<fNumberOfBoards<<"\""<<std::endl;
+	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Channels per digitizer\\\" "<<fNumberOfChannels<<"\""<<std::endl;
+	script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Raw output\\\" "<<fRawOutput<<"\""<<std::endl;
 	for(int i = 0; i < fNumberOfBoards; ++i) {
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Link Type["<<i<<"]\\\" "<<fLinkType[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/VME base address["<<i<<"]\\\" "<<fVmeBaseAddress[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Acquisition Mode["<<i<<"]\\\" "<<fAcquisitionMode[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/IO Level["<<i<<"]\\\" "<<fIOLevel[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger Mode["<<i<<"]\\\" "<<fTriggerMode[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Channel Mask["<<i<<"]\\\" "<<fChannelMask[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/RunSync Mode["<<i<<"]\\\" "<<fRunSync[i]<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Event aggregation["<<i<<"]\\\" "<<fEventAggregation[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Link Type["<<i<<"]\\\" "<<fLinkType[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/VME base address["<<i<<"]\\\" "<<fVmeBaseAddress[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Acquisition Mode["<<i<<"]\\\" "<<fAcquisitionMode[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/IO Level["<<i<<"]\\\" "<<fIOLevel[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Trigger Mode["<<i<<"]\\\" "<<fTriggerMode[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Channel Mask["<<i<<"]\\\" "<<fChannelMask[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/RunSync Mode["<<i<<"]\\\" "<<fRunSync[i]<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Event aggregation["<<i<<"]\\\" "<<fEventAggregation[i]<<"\""<<std::endl;
 
 		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Record length["<<i*fNumberOfChannels+ch<<"]\\\" "<<fRecordLength[i][ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/DC offset["<<i*fNumberOfChannels+ch<<"]\\\" "<<fDCOffset[i][ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pre trigger["<<i*fNumberOfChannels+ch<<"]\\\" "<<fPreTrigger[i][ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pulse polarity["<<i*fNumberOfChannels+ch<<"]\\\" "<<fPulsePolarity[i][ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Enable CFD["<<i*fNumberOfChannels+ch<<"]\\\" "<<fEnableCfd[i][ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/CFD delay["<<i*fNumberOfChannels+ch<<"]\\\" "<<(fCfdParameters[i][ch] & 0xff)<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/CFD fraction["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>8) & 0x3)<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/CFD interpolation points["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>10) & 0x3)<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Record length["<<i*fNumberOfChannels+ch<<"]\\\" "<<fRecordLength[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/DC offset["<<i*fNumberOfChannels+ch<<"]\\\" "<<fDCOffset[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Pre trigger["<<i*fNumberOfChannels+ch<<"]\\\" "<<fPreTrigger[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Pulse polarity["<<i*fNumberOfChannels+ch<<"]\\\" "<<fPulsePolarity[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Enable CFD["<<i*fNumberOfChannels+ch<<"]\\\" "<<fEnableCfd[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/CFD delay["<<i*fNumberOfChannels+ch<<"]\\\" "<<(fCfdParameters[i][ch] & 0xff)<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/CFD fraction["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>8) & 0x3)<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/CFD interpolation points["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>10) & 0x3)<<"\""<<std::endl;
 		}
 
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pile up rejection mode["<<i<<"]\\\" "<<fChannelParameter[i]->purh<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pile up gap["<<i<<"]\\\" "<<fChannelParameter[i]->purgap<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Baseline threshold["<<i<<"]\\\" "<<fChannelParameter[i]->blthr<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Baseline timeout["<<i<<"]\\\" "<<fChannelParameter[i]->bltmo<<"\""<<std::endl;
-		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger holdoff["<<i<<"]\\\" "<<fChannelParameter[i]->trgho<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Pile up rejection mode["<<i<<"]\\\" "<<fChannelParameter[i]->purh<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Pile up gap["<<i<<"]\\\" "<<fChannelParameter[i]->purgap<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Baseline threshold["<<i<<"]\\\" "<<fChannelParameter[i]->blthr<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Baseline timeout["<<i<<"]\\\" "<<fChannelParameter[i]->bltmo<<"\""<<std::endl;
+		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Trigger holdoff["<<i<<"]\\\" "<<fChannelParameter[i]->trgho<<"\""<<std::endl;
 		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Threshold["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->thr[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Baseline samples["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->nsbl[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Long gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->lgate[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Short gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->sgate[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Pre gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->pgate[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Self trigger["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->selft[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger configuration["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->trgc[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Trigger validation window["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->tvaw[ch]<<"\""<<std::endl;
-			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Common/Charge sensitivity["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->csens[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Threshold["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->thr[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Baseline samples["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->nsbl[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Long gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->lgate[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Short gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->sgate[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Pre gate["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->pgate[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Self trigger["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->selft[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Trigger configuration["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->trgc[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Trigger validation window["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->tvaw[ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Charge sensitivity["<<i*fNumberOfChannels+ch<<"]\\\" "<<fChannelParameter[i]->csens[ch]<<"\""<<std::endl;
 		}
 	}
 	script<<std::endl;
 
-   script.close();
+	script.close();
 
-	system("chmod +x writeSettings.sh; writeSettings.sh");
+	std::system("chmod +x writeSettings.sh; writeSettings.sh");
 
 	return true;
 
 	// write ODB settings
 	HNDLE hDB;
 	HNDLE hSet;
-	DT5730_COMMON settings;
+	DT5730_SETTINGS settings;
 
-std::cout<<"here ..."<<std::endl;
-	// copy settings to DT5730_COMMON struct
+	std::cout<<"here ..."<<std::endl;
+	// copy settings to DT5730_SETTINGS struct
 	if(fNumberOfBoards > MAX_BOARDS) {
 		std::cerr<<"Too many boards specified in settings: "<<fNumberOfBoards<<" > "<<MAX_BOARDS<<std::endl;
 		return false;
@@ -316,27 +321,27 @@ std::cout<<"here ..."<<std::endl;
 		}
 	}
 	settings.raw_output = fRawOutput;
-std::cout<<"connecting to database ..."<<std::endl;
+	std::cout<<"connecting to database ..."<<std::endl;
 	// connect to ODB
-	if(cm_get_experiment_database(&hDB, nullptr) != CM_SUCCESS) {
+	if(cm_get_experiment_database(&hDB, NULL) != CM_SUCCESS) {
 		std::cout<<"failed to get database handle "<<hDB<<std::endl;
 		return false;
 	}
 
-std::cout<<"creating record using handle "<<hDB<<" ..."<<std::endl;
+	std::cout<<"creating record using handle "<<hDB<<" ..."<<std::endl;
 	// create record (just in case it didn't exist already)
-	DT5730_COMMON_STR(dt5730_common_str);
-	if(db_create_record(hDB, 0, "/Equipment/DT5730/Common", strcomb(dt5730_common_str)) != DB_SUCCESS) {
+	DT5730_SETTINGS_STR(dt5730_settings_str);
+	if(db_create_record(hDB, 0, "/Equipment/DT5730/Settings", strcomb(dt5730_settings_str)) != DB_SUCCESS) {
 		std::cout<<"failed to create record"<<std::endl;
 		return false;
 	}
 
-std::cout<<"writing ..."<<std::endl;
+	std::cout<<"writing ..."<<std::endl;
 	// write settings to ODB
-	db_find_key(hDB, 0, "/Equipment/DT5730/Common", &hSet);
+	db_find_key(hDB, 0, "/Equipment/DT5730/Settings", &hSet);
 	int size = sizeof(settings);
 	if(db_set_record(hDB, hSet, &settings, size, 0) != DB_SUCCESS) {
-		std::cout<<"Error occured trying to write \"/Equipment/DT5730/Common\""<<std::endl;
+		std::cout<<"Error occured trying to write \"/Equipment/DT5730/Settings\""<<std::endl;
 		return false;
 	}
 

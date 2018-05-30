@@ -129,7 +129,7 @@ INT frontend_init()
   setbuf(stderr, NULL);
 
   delete gDigitizer;
-  gDigitizer = new CaenDigitizer();
+  gDigitizer = new CaenDigitizer(hDB);
 
   return SUCCESS;
 }
@@ -149,7 +149,7 @@ INT begin_of_run(INT run_number, char *error)
 {
   printf("begin run %d\n",run_number);
 
-  gDigitizer->StartAcquisition();
+  gDigitizer->StartAcquisition(hDB);
 
   return SUCCESS;
 }
