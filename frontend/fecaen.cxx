@@ -129,7 +129,8 @@ INT frontend_init()
   setbuf(stderr, NULL);
 
   delete gDigitizer;
-  gDigitizer = new CaenDigitizer(hDB);
+  gDigitizer = new CaenDigitizer(hDB, false);
+  gDigitizer->Calibrate();
 
   return SUCCESS;
 }

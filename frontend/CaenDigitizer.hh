@@ -17,7 +17,8 @@ public:
 	void StartAcquisition(HNDLE hDB);
 	void StopAcquisition();
 	INT  DataReady();
-	void ReadData(char* event, char* bankName);
+	uint32_t ReadData(char* event, const char* bankName);
+	void Calibrate();
 
 private:
 	void Setup();

@@ -18,20 +18,115 @@
   Created on:   Tue Jan  9 10:50:52 2018
 
 \********************************************************************/
+#ifndef CAENODB_H
+#define CAENODB_H
+#ifndef EXCL_CAEN
 
-#ifndef EXCL_DT5730
+#define CAEN_SETTINGS_DEFINED
 
-#define DT5730_SETTINGS_DEFINED
-
-#define MAX_BOARDS 2
-#define MAX_CHANNELS 8
+#define MAX_BOARDS 5
+#define MAX_CHANNELS 16
 
 typedef struct {
   char      format[80];
   WORD      number_of_digitizers;
   WORD      channels_per_digitizer;
+  BOOL		use_external_clock;
+  BOOL      raw_output;
+  WORD      link_type;
+  WORD		board_type;
+  DWORD     vme_base_address;
+  WORD      acquisition_mode;
+  WORD      io_level;
+  WORD      trigger_mode;
+  WORD      channel_mask;
+  WORD		runsync_mode;
+  WORD		event_aggregation;
+  // per channel parameters
+  WORD		record_length;
+  WORD		dc_offset;
+  WORD		pre_trigger;
+  WORD		pulse_polarity;
+  BOOL		enable_cfd;
+  WORD		cfd_delay;
+  WORD		cfd_fraction;
+  WORD		cfd_interpolation_points;
+  BOOL      enable_coinc;
+  BOOL      enable_baseline;
+  WORD		coinc_window;
+  WORD		coinc_latency;
+
+  // for channel parameters structure
+  WORD      pile_up_rejection_mode;
+  WORD      pile_up_gap;
+  WORD      baseline_threshold;
+  WORD      baseline_timeout;
+  WORD      trigger_holdoff;
+  WORD		threshold;
+  WORD		baseline_samples;
+  WORD		long_gate;
+  WORD		short_gate;
+  WORD		pre_gate;
+  WORD		self_trigger;
+  WORD		trigger_configuration;
+  WORD		trigger_validation_window;
+  WORD		charge_sensitivity;
+} V1730_TEMPLATE;
+
+#define V1730_TEMPLATE_STR(_name) const char *_name[] = {\
+	"[.]",\
+	"Format = STRING : [80] ",\
+	"Number of digitizers = WORD : 1",\
+	"Channels per digitizer = WORD : 8",\
+	"Use external clock = BOOL : 0",\
+	"Raw output = BOOL : 0",\
+	"Link Type = WORD : 1",\
+	"Board Type = WORD : 2",\
+	"VME base address = DWORD : 0",\
+	"Acquisition Mode = WORD : 1",\
+	"IO Level = WORD : 0",\
+	"Trigger Mode = WORD : 1",\
+	"Channel Mask = WORD : 0xff",\
+	"RunSync mode = WORD : 0",\
+	"Event aggregation = WORD : 0",\
+	"Record length = WORD : 192",\
+	"DC offset = WORD : 0x8000",\
+	"Pre trigger = WORD : 80",\
+	"Pulse polarity = WORD : 1",\
+	"Enable CFD = BOOL : 1",\
+	"CFD delay = WORD : 2",\
+	"CFD fraction = WORD : 0",\
+	"CFD interpolation points = WORD : 0",\
+	"Enable Coincidence = BOOL : 0",\
+	"Enable Baseline = BOOL : 0",\
+	"Coincidence window = WORD : 2",\
+	"Coincidence latency = WORD : 0",\
+	"Pile up rejection mode = WORD : 0",\
+	"Pile up gap = WORD : 100",\
+	"Baseline threshold = WORD : 3",\
+	"Baseline timeout = WORD : 100",\
+	"Trigger holdoff = WORD : 8",\
+	"Threshold = WORD : 50",\
+	"Baseline samples = WORD : 4",\
+	"Long gate = WORD : 50",\
+	"Short gate = WORD : 24",\
+	"Pre gate = WORD : 8",\
+	"Self trigger = WORD : 1",\
+	"Trigger configuration = WORD : 1",\
+	"Trigger validation window = WORD : 50",\
+	"Charge sensitivity = WORD : 0",\
+	"",\
+	NULL }
+
+// DT5730 - old style
+typedef struct {
+  char      format[80];
+  WORD      number_of_digitizers;
+  WORD      channels_per_digitizer;
+  BOOL		use_external_clock;
   BOOL      raw_output;
   WORD      link_type[MAX_BOARDS];
+  WORD      board_type[MAX_BOARDS];
   DWORD     vme_base_address[MAX_BOARDS];
   WORD      acquisition_mode[MAX_BOARDS];
   WORD      io_level[MAX_BOARDS];
@@ -70,8 +165,12 @@ typedef struct {
 	"Format = STRING : [80] ",\
 	"Number of digitizers = WORD : 1",\
 	"Channels per digitizer = WORD : 8",\
+	"Use external clock = BOOL : 0",\
 	"Raw output = BOOL : 0",\
 	"Link Type = WORD[2] :",\
+	"[0] 0",\
+	"[1] 0",\
+	"Board Type = WORD[2] :",\
 	"[0] 0",\
 	"[1] 0",\
 	"VME base address = DWORD[2] :",\
@@ -266,5 +365,6 @@ typedef struct {
 	"",\
 	NULL }
 
+#endif
 #endif
 
