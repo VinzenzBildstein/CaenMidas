@@ -244,7 +244,11 @@ INT read_event(char *pevent, INT off)
 		/* init bank structure */
 		bk_init32(pevent);
 
-		gDigitizer->ReadData(pevent, "CAEN");
+		uint32_t nofEvents = gDigitizer->ReadData(pevent, "CAEN");
+
+		if(nofEvents > 1) {
+			SERIAL_NUMBER(pevent) += nofEvents - 1;
+		}
 
 		gotData = false;
 
