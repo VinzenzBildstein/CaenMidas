@@ -47,7 +47,12 @@ typedef struct {
   WORD		cfd_delay[MAX_CHANNELS];
   WORD		cfd_fraction[MAX_CHANNELS];
   WORD		cfd_interpolation_points[MAX_CHANNELS];
+  WORD		enable_coinc[MAX_CHANNELS];
+  WORD		enable_baseline[MAX_CHANNELS];
+  WORD		coinc_window[MAX_CHANNELS];
+  WORD		coinc_latency[MAX_CHANNELS];
 
+  
   //channel parameters
   WORD      pile_up_rejection_mode[MAX_BOARDS];
   WORD      pile_up_gap[MAX_BOARDS];
@@ -159,6 +164,42 @@ typedef struct {
 	"[6]  0",\
 	"[7]  0",\
 	"CFD interpolation points = WORD[8] :",\
+	"[0]  0",\
+	"[1]  0",\
+	"[2]  0",\
+	"[3]  0",\
+	"[4]  0",\
+	"[5]  0",\
+	"[6]  0",\
+	"[7]  0",\
+	"Enable Coincidence = WORD[8] :",\
+	"[0]  0",\
+	"[1]  0",\
+	"[2]  0",\
+	"[3]  0",\
+	"[4]  0",\
+	"[5]  0",\
+	"[6]  0",\
+	"[7]  0",\
+	"Enable Baseline = WORD[8] :",\
+	"[0]  0",\
+	"[1]  0",\
+	"[2]  0",\
+	"[3]  0",\
+	"[4]  0",\
+	"[5]  0",\
+	"[6]  0",\
+	"[7]  0",\
+	"Coincidence Window = WORD[8] :",\
+	"[0]  2",\
+	"[1]  2",\
+	"[2]  2",\
+	"[3]  2",\
+	"[4]  2",\
+	"[5]  2",\
+	"[6]  2",\
+	"[7]  2",\
+	"Coincidence Latency = WORD[8] :",\
 	"[0]  0",\
 	"[1]  0",\
 	"[2]  0",\

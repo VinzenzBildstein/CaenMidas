@@ -129,7 +129,7 @@ INT frontend_init()
   setbuf(stderr, NULL);
 
   delete gDigitizer;
-  gDigitizer = new CaenDigitizer(hDB);
+  gDigitizer = new CaenDigitizer(hDB,true);
 
   return SUCCESS;
 }
@@ -203,12 +203,18 @@ INT frontend_loop()
   \********************************************************************/
 
 /*-- Trigger event routines ----------------------------------------*/
+bool gotData = false;
 extern "C" INT poll_event(INT source, INT count, BOOL test)
 /* Polling routine for events. Returns TRUE if event
 	is available. If test equals TRUE, don't return. The test
 	flag is used to time the polling */
 {
-	return gDigitizer->DataReady();
+	// we can only read more data (which happens in DataReady)
+	// if we have read the previous data
+	if(!gotData) {
+		gotData = gDigitizer->DataReady();
+	}
+	return gotData;
 }
 
 /*-- Interrupt configuration ---------------------------------------*/
@@ -231,13 +237,18 @@ extern "C" INT interrupt_configure(INT cmd, INT source, PTYPE adr)
 
 INT read_event(char *pevent, INT off)
 {
-	//printf("read event!\n");
+	if(gotData) {
+		//printf("read event!\n");
 
-	/* init bank structure */
-	bk_init32(pevent);
+		/* init bank structure */
+		bk_init32(pevent);
 
-	gDigitizer->ReadData(pevent, "CAEN");
+		gDigitizer->ReadData(pevent, "CAEN");
 
-	return bk_size(pevent);
+		gotData = false;
+
+		return bk_size(pevent);
+	}
+	return 0;
 }
 

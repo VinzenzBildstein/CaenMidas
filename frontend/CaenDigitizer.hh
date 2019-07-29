@@ -22,6 +22,7 @@ public:
 private:
 	void Setup();
 	void ProgramDigitizer(int board);
+        void Calibrate();
 
 	CaenSettings* fSettings;
 

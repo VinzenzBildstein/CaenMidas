@@ -1,15 +1,11 @@
 #include "CaenSettings.hh"
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <curses.h>
 #include <cstdlib>
-
 #include "midas.h"
-
-//#include "TEnv.h"
-
+#include "TEnv.h"
 #include "CaenOdb.h"
 
 CaenSettings::CaenSettings()
@@ -70,6 +66,10 @@ void CaenSettings::ReadOdb(HNDLE hDB)
 	fPreTrigger.resize(fNumberOfBoards);
 	fPulsePolarity.resize(fNumberOfBoards);
 	fEnableCfd.resize(fNumberOfBoards);
+        fEnableCoinc.resize(fNumberOfBoards);
+        fEnableBaseline.resize(fNumberOfBoards);
+	fCoincWindow.resize(fNumberOfBoards);
+	fCoincLatency.resize(fNumberOfBoards);
 	fCfdParameters.resize(fNumberOfBoards);
 	fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
 	for(int i = 0; i < fNumberOfBoards; ++i) {
@@ -87,6 +87,10 @@ void CaenSettings::ReadOdb(HNDLE hDB)
 		fPreTrigger[i].resize(fNumberOfChannels);
 		fPulsePolarity[i].resize(fNumberOfChannels);
 		fEnableCfd[i].resize(fNumberOfChannels);
+	      	fEnableCoinc[i].resize(fNumberOfChannels);
+	      	fEnableBaseline[i].resize(fNumberOfChannels);
+		fCoincWindow[i].resize(fNumberOfChannels);
+		fCoincLatency[i].resize(fNumberOfChannels);
 		fCfdParameters[i].resize(fNumberOfChannels);
 		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
 			fRecordLength[i][ch]  = settings.record_length[i*fNumberOfChannels + ch];
@@ -97,8 +101,13 @@ void CaenSettings::ReadOdb(HNDLE hDB)
 			fCfdParameters[i][ch] = (settings.cfd_delay[i*fNumberOfChannels + ch] & 0xff);
 			fCfdParameters[i][ch] |= (settings.cfd_fraction[i*fNumberOfChannels + ch] & 0x3) << 8;
 			fCfdParameters[i][ch] |= (settings.cfd_interpolation_points[i*fNumberOfChannels + ch] & 0x3) << 10;
-		}
+		     	fEnableCoinc[i][ch]   = settings.enable_coinc[i*fNumberOfChannels + ch];
+		     	fEnableBaseline[i][ch]   = settings.enable_baseline[i*fNumberOfChannels + ch];
+			fCoincWindow[i][ch]   = settings.coinc_window[i*fNumberOfChannels + ch];
+            		fCoincLatency[i][ch]  = settings.coinc_latency[i*fNumberOfChannels + ch];
 
+		}
+ 
 		fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings.pile_up_rejection_mode[i]);
 		fChannelParameter[i]->purgap = settings.pile_up_gap[i];
 		fChannelParameter[i]->blthr  = settings.baseline_threshold[i];
@@ -112,7 +121,7 @@ void CaenSettings::ReadOdb(HNDLE hDB)
 			fChannelParameter[i]->pgate[ch] = settings.pre_gate[i*fNumberOfChannels + ch];
 			fChannelParameter[i]->selft[ch] = settings.self_trigger[i*fNumberOfChannels + ch];
 			fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings.trigger_configuration[i*fNumberOfChannels + ch]);
-			fChannelParameter[i]->tvaw[ch]  = settings.trigger_validation_window[i*fNumberOfChannels + ch];
+      			fChannelParameter[i]->tvaw[ch]  = settings.trigger_validation_window[i*fNumberOfChannels + ch];
 			fChannelParameter[i]->csens[ch] = settings.charge_sensitivity[i*fNumberOfChannels + ch];
 		}
 	}
@@ -120,87 +129,100 @@ void CaenSettings::ReadOdb(HNDLE hDB)
 	//Print();
 }
 
-//bool CaenSettings::ReadSettingsFile(const std::string& filename)
-//{
-//	auto settings = new TEnv(filename.c_str());
-//	if(settings == NULL || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
-//		return false;
-//	}
-//
-//	fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
-//	if(fNumberOfBoards < 1) {
-//		std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
-//		return false;
-//	}
-//	fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
-//	if(fNumberOfChannels < 1) {
-//		std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
-//		return false;
-//	}
-//	fBufferSize = settings->GetValue("BufferSize", 100000);
-//
-//	fLinkType.resize(fNumberOfBoards);
-//	fVmeBaseAddress.resize(fNumberOfBoards);
-//	fAcquisitionMode.resize(fNumberOfBoards);
-//	fIOLevel.resize(fNumberOfBoards);
-//	fChannelMask.resize(fNumberOfBoards);
-//	fRunSync.resize(fNumberOfBoards);
-//	fEventAggregation.resize(fNumberOfBoards);
-//	fTriggerMode.resize(fNumberOfBoards);
-//	fRecordLength.resize(fNumberOfBoards);
-//	fDCOffset.resize(fNumberOfBoards);
-//	fPreTrigger.resize(fNumberOfBoards);
-//	fPulsePolarity.resize(fNumberOfBoards);
-//	fEnableCfd.resize(fNumberOfBoards);
-//	fCfdParameters.resize(fNumberOfBoards);
-//	fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t);
-//	for(int i = 0; i < fNumberOfBoards; ++i) {
-//		fLinkType[i]         = CAEN_DGTZ_USB;//0
-//		fVmeBaseAddress[i]   = 0;
-//		fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
-//		fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
-//		fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
-//		fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
-//		fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
-//		fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
-//
-//		fRecordLength[i].resize(fNumberOfChannels);
-//		fDCOffset[i].resize(fNumberOfChannels);
-//		fPreTrigger[i].resize(fNumberOfChannels);
-//		fPulsePolarity[i].resize(fNumberOfChannels);
-//		fEnableCfd[i].resize(fNumberOfChannels);
-//		fCfdParameters[i].resize(fNumberOfChannels);
-//		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-//			fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
-//			fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 0x8000);
-//			fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.RunSync", i, ch), 80);
-//			fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
-//			fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
-//			fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
-//			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
-//			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
-//		}
-//
-//		fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
-//		fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
-//		fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
-//		fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
-//		fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
-//		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
-//			fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
-//			fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
-//			fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
-//			fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
-//			fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
-//			fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
-//			fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
-//			fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
-//			fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
-//		}
-//	}
-//
-//	return true;
-//}
+bool CaenSettings::ReadSettingsFile(const std::string& filename)
+{
+	auto settings = new TEnv(filename.c_str());
+	if(settings == NULL || settings->ReadFile(filename.c_str(), kEnvLocal) != 0) {
+		return false;
+	}
+
+	fNumberOfBoards = settings->GetValue("NumberOfBoards", 1);
+	if(fNumberOfBoards < 1) {
+		std::cout<<fNumberOfBoards<<" boards is not possible!"<<std::endl;
+		return false;
+	}
+	fNumberOfChannels = settings->GetValue("NumberOfChannels", 8);
+	if(fNumberOfChannels < 1) {
+		std::cout<<fNumberOfChannels<<" maximum channels is not possible!"<<std::endl;
+		return false;
+	}
+	fBufferSize = settings->GetValue("BufferSize", 100000);
+
+	fLinkType.resize(fNumberOfBoards);
+	fVmeBaseAddress.resize(fNumberOfBoards);
+	fAcquisitionMode.resize(fNumberOfBoards);
+	fIOLevel.resize(fNumberOfBoards);
+	fChannelMask.resize(fNumberOfBoards);
+	fRunSync.resize(fNumberOfBoards);
+	fEventAggregation.resize(fNumberOfBoards);
+	fTriggerMode.resize(fNumberOfBoards);
+	fRecordLength.resize(fNumberOfBoards);
+	fDCOffset.resize(fNumberOfBoards);
+	fPreTrigger.resize(fNumberOfBoards);
+	fPulsePolarity.resize(fNumberOfBoards);
+	fEnableCfd.resize(fNumberOfBoards);
+	fEnableCoinc.resize(fNumberOfBoards);
+	fEnableBaseline.resize(fNumberOfBoards);
+	fCfdParameters.resize(fNumberOfBoards);
+	fCoincWindow.resize(fNumberOfBoards);
+	fCoincLatency.resize(fNumberOfBoards);
+	fChannelParameter.resize(fNumberOfBoards, new CAEN_DGTZ_DPP_PSD_Params_t); 
+	for(int i = 0; i < fNumberOfBoards; ++i) {
+		fLinkType[i]         = CAEN_DGTZ_USB;//0
+		fVmeBaseAddress[i]   = 0;
+		fAcquisitionMode[i]  = static_cast<CAEN_DGTZ_DPP_AcqMode_t>(settings->GetValue(Form("Board.%d.AcquisitionMode", i), CAEN_DGTZ_DPP_ACQ_MODE_Mixed));//2
+		fIOLevel[i]          = static_cast<CAEN_DGTZ_IOLevel_t>(settings->GetValue(Form("Board.%d.IOlevel", i), CAEN_DGTZ_IOLevel_NIM));//0
+		fChannelMask[i]      = settings->GetValue(Form("Board.%d.ChannelMask", i), 0xff);
+		fRunSync[i]          = static_cast<CAEN_DGTZ_RunSyncMode_t>(settings->GetValue(Form("Board.%d.RunSync", i), CAEN_DGTZ_RUN_SYNC_Disabled));//0
+		fEventAggregation[i] = settings->GetValue(Form("Board.%d.EventAggregate", i), 0);
+		fTriggerMode[i]      = static_cast<CAEN_DGTZ_TriggerMode_t>(settings->GetValue(Form("Board.%d.TriggerMode", i), CAEN_DGTZ_TRGMODE_ACQ_ONLY));//1
+
+		fRecordLength[i].resize(fNumberOfChannels);
+		fDCOffset[i].resize(fNumberOfChannels);
+		fPreTrigger[i].resize(fNumberOfChannels);
+		fPulsePolarity[i].resize(fNumberOfChannels);
+		fEnableCfd[i].resize(fNumberOfChannels);
+		fCfdParameters[i].resize(fNumberOfChannels);
+      		fEnableCoinc[i].resize(fNumberOfChannels);
+      		fEnableBaseline[i].resize(fNumberOfChannels);
+		fCoincWindow[i].resize(fNumberOfChannels);
+		fCoincLatency[i].resize(fNumberOfChannels);
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			fRecordLength[i][ch]  = settings->GetValue(Form("Board.%d.Channel.%d.RecordLength", i, ch), 192);
+			fDCOffset[i][ch]      = settings->GetValue(Form("Board.%d.Channel.%d.DCOffset", i, ch), 0x8000);
+ 			fPreTrigger[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.PreTrigger", i, ch), 80);
+			fPulsePolarity[i][ch] = static_cast<CAEN_DGTZ_PulsePolarity_t>(settings->GetValue(Form("Board.%d.Channel.%d.PulsePolarity", i, ch), CAEN_DGTZ_PulsePolarityNegative));//1
+			fEnableCfd[i][ch]     = settings->GetValue(Form("Board.%d.Channel.%d.EnableCfd", i, ch), true);
+			fCfdParameters[i][ch] = (settings->GetValue(Form("Board.%d.Channel.%d.CfdDelay", i, ch), 5) & 0xff);
+			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdFraction", i, ch), 0) & 0x3) << 8;
+			fCfdParameters[i][ch] |= (settings->GetValue(Form("Board.%d.Channel.%d.CfdInterpolationPoints", i, ch), 0) & 0x3) << 10;
+	      		fEnableCoinc[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.EnableCoinc", i, ch), false);
+			fEnableBaseline[i][ch]    = settings->GetValue(Form("Board.%d.Channel.%d.EnableBaseline", i, ch), false);
+			fCoincWindow[i][ch] = settings->GetValue(Form("Board.%d.Channel.%d.CoincWindow", i, ch), 5);
+			fCoincLatency[i][ch] = settings->GetValue(Form("Board.%d.Channel.%d.CoincLatency", i, ch), 2);
+						
+		}
+
+		fChannelParameter[i]->purh   = static_cast<CAEN_DGTZ_DPP_PUR_t>(settings->GetValue(Form("Board.%d.PileUpRejection", i), CAEN_DGTZ_DPP_PSD_PUR_DetectOnly));//0
+		fChannelParameter[i]->purgap = settings->GetValue(Form("Board.%d.PurityGap", i), 100);
+		fChannelParameter[i]->blthr  = settings->GetValue(Form("Board.%d.BaseLine.Threshold", i), 3);
+		fChannelParameter[i]->bltmo  = settings->GetValue(Form("Board.%d.BaseLine.Timeout", i), 100);
+		fChannelParameter[i]->trgho  = settings->GetValue(Form("Board.%d.TriggerHoldOff", i), 8);
+		for(int ch = 0; ch < fNumberOfChannels; ++ch) {
+			fChannelParameter[i]->thr[ch]   = settings->GetValue(Form("Board.%d.Channel.%d.Threshold", i, ch), 50);
+			fChannelParameter[i]->nsbl[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.BaselineSamples", i, ch), 4);
+			fChannelParameter[i]->lgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.LongGate", i, ch), 32);
+			fChannelParameter[i]->sgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ShortGate", i, ch), 24);
+			fChannelParameter[i]->pgate[ch] = settings->GetValue(Form("Board.%d.Channel.%d.PreGate", i, ch), 8);
+			fChannelParameter[i]->selft[ch] = settings->GetValue(Form("Board.%d.Channel.%d.SelfTrigger", i, ch), 1);
+			fChannelParameter[i]->trgc[ch]  = static_cast<CAEN_DGTZ_DPP_TriggerConfig_t>(settings->GetValue(Form("Board.%d.Channel.%d.TriggerConfiguration", i, ch), CAEN_DGTZ_DPP_TriggerConfig_Threshold));//1
+			fChannelParameter[i]->tvaw[ch]  = settings->GetValue(Form("Board.%d.Channel.%d.TriggerValidationAcquisitionWindow", i, ch), 50);
+			fChannelParameter[i]->csens[ch] = settings->GetValue(Form("Board.%d.Channel.%d.ChargeSensitivity", i, ch), 0);
+		}
+	}
+
+	return true;
+}
 
 bool CaenSettings::WriteOdb()
 {
@@ -238,6 +260,11 @@ bool CaenSettings::WriteOdb()
 			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/CFD delay["<<i*fNumberOfChannels+ch<<"]\\\" "<<(fCfdParameters[i][ch] & 0xff)<<"\""<<std::endl;
 			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/CFD fraction["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>8) & 0x3)<<"\""<<std::endl;
 			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/CFD interpolation points["<<i*fNumberOfChannels+ch<<"]\\\" "<<((fCfdParameters[i][ch]>>10) & 0x3)<<"\""<<std::endl;
+      			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Enable Coincidence["<<i*fNumberOfChannels+ch<<"]\\\" "<<fEnableCoinc[i][ch]<<"\""<<std::endl;
+      			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Enable Baseline["<<i*fNumberOfChannels+ch<<"]\\\" "<<fEnableBaseline[i][ch]<<"\""<<std::endl;
+			script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Coincidence Window["<<i*fNumberOfChannels+ch<<"]\\\" "<<fCoincWindow[i][ch] <<"\""<<std::endl;
+		        script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Coincidence Latency["<<i*fNumberOfChannels+ch<<"]\\\" "<<fCoincLatency[i][ch] <<"\""<<std::endl;
+
 		}
 
 		script<<"odbedit -c \"set \\\"/Equipment/DT5730/Settings/Pile up rejection mode["<<i<<"]\\\" "<<fChannelParameter[i]->purh<<"\""<<std::endl;
@@ -261,7 +288,7 @@ bool CaenSettings::WriteOdb()
 
 	script.close();
 
-	std::system("chmod +x writeSettings.sh; writeSettings.sh");
+	std::system("chmod +x writeSettings.sh; ./writeSettings.sh; rm writeSettings.sh");
 
 	return true;
 
@@ -301,6 +328,12 @@ bool CaenSettings::WriteOdb()
 			settings.cfd_delay[i*fNumberOfChannels + ch] = fCfdParameters[i][ch] & 0xff;
 			settings.cfd_fraction[i*fNumberOfChannels + ch] = (fCfdParameters[i][ch]>>8) & 0x3;
 			settings.cfd_interpolation_points[i*fNumberOfChannels + ch] = (fCfdParameters[i][ch]>>10) & 0x3;
+		
+		        settings.enable_coinc[i*fNumberOfChannels + ch] = fEnableCoinc[i][ch];
+		        settings.enable_baseline[i*fNumberOfChannels + ch] = fEnableBaseline[i][ch];
+			settings.coinc_window[i*fNumberOfChannels + ch] = fCoincWindow[i][ch];
+			settings.coinc_latency[i*fNumberOfChannels + ch] = fCoincLatency[i][ch];
+
 		}
 
 		settings.pile_up_rejection_mode[i] = fChannelParameter[i]->purh;

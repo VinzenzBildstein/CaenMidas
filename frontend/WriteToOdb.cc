@@ -16,6 +16,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	//settings->Print();
 	settings->WriteOdb();
 
 	return 0;
